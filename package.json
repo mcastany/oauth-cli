@@ -1,0 +1,19 @@
+{
+  "name": "oauth-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Marcos Castany",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.17.2",
+    "express": "^4.15.4",
+    "opener": "^1.4.3",
+    "randomstring": "^1.1.5",
+    "request": "^2.81.0",
+    "winston": "^2.3.1"
+  }
+}
