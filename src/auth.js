@@ -53,7 +53,7 @@ Auth.prototype.setAuthorizationServer = function(settings){
   this.as.authorization_endpoint = settings.authorization_endpoint;
   this.as.token_endpoint = settings.token_endpoint;
   this.as.userinfo_endpoint = settings.userinfo_endpoint;
-  this.as.revoke_endpoint = settings.revoke_endpoint;
+  this.as.revocation_endpoint = settings.revocation_endpoint;
   this.logger.debug('configured as settings', this.as);
   return this;
 }
@@ -101,7 +101,7 @@ Auth.prototype._loadASSettings = function(cb){
       this.as.authorization_endpoint = body.authorization_endpoint || this.as.authorization_endpoint;
       this.as.token_endpoint = body.token_endpoint || this.as.token_endpoint;
       this.as.userinfo_endpoint = body.userinfo_endpoint || this.as.userinfo_endpoint;
-      this.as.revoke_endpoint = body.revoke_endpoint || this.as.revoke_endpoint;
+      this.as.revocation_endpoint = body.revocation_endpoint || this.as.revocation_endpoint;
       this.logger.debug('loading information from wellknown url', this.as);
     } catch(e){
       this.logger.error('there was an error loading authorization server data', e);      
@@ -283,7 +283,7 @@ Auth.prototype.performRefreshTokenExchange = function(settings, cb){
 }
 
 Auth.prototype.revokeRefreshToken = function(settings, cb){
-  if(!this.as.revoke_endpoint) { return cb(new Error('revoke endpoint is not defined')); }
+  if(!this.as.revocation_endpoint) { return cb(new Error('revoke endpoint is not defined')); }
 
   const form = {
     client_id: this.client.client_id,
@@ -291,13 +291,13 @@ Auth.prototype.revokeRefreshToken = function(settings, cb){
   };
 
   [this.client.extras, settings.extras].forEach((v) => proccessExtras(form));  
-
+  
   request({
-    url: this.as.revoke_endpoint,
+    url: this.as.revocation_endpoint,
     method: 'POST',
-    json: true,
-    headers: { 'content-type': 'application/json', },
-    body: form
+    dataType: 'json',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    form: form
   }, (err, resp, body) =>  {
     if(err || resp.statusCode !== 200) { 
       this.logger.error('Error revoking token', err || { statusCode: resp.statusCode, body: body })

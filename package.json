@@ -1,9 +1,11 @@
 {
-  "name": "oauth-cli",
+  "name": "oauth-for-cli",
   "version": "1.0.0",
-  "description": "",
+  "description": "Package to add OAuth to CLI programs",
   "main": "index.js",
   "scripts": {
+    "google-sample": "node ./example/google.js",
+    "auth0-sample": "node ./example/auth0.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Marcos Castany",
@@ -15,5 +17,8 @@
     "randomstring": "^1.1.5",
     "request": "^2.81.0",
     "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "mocha": "^3.5.0"
   }
 }

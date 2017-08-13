@@ -1,3 +1,3 @@
-const auth_handler = require('./src/auth_handler');
+const auth = require('./src/auth');
 
-module.exports = auth_handler;
+module.exports = auth;
