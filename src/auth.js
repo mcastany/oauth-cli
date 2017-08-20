@@ -60,9 +60,9 @@ Auth.prototype.setAuthorizationServer = function(settings){
 }
 
 Auth.prototype.setClient = function(settings){
-  this.client.redirect_uri = settings.redirect_uri;
-  this.client.client_id = settings.client_id;
-  this.client.extras = settings.extras;
+  this.client.redirect_uri = settings.redirect_uri || this.client.redirect_uri;
+  this.client.client_id = settings.client_id || this.client.client_id;
+  this.client.extras = settings.extras || this.client.extras;
 
   if (settings.code_challenge_method){
     if (CODE_CHALLENGES.indexOf(settings.code_challenge_method) > -1){
@@ -188,8 +188,8 @@ Auth.prototype._performAuthenticateRequest = function(settings, cb){
       opener(url);
     })
     .on('response', (response) => {
-      cb(null, response);
       server.destroy();    
+      cb(null, response);
     }).on('error', (err) => {
       server.destroy();
       cb(err);    
@@ -207,19 +207,6 @@ Auth.prototype._performCodeExchange = function(settings, cb){
   if (this.client.code_verifier){
     body.code_verifier = this.client.code_verifier;
   }
-
-  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body)(v));  
-
-  this._performTokenRequest(body, cb);
-}
-
-Auth.prototype._performRefreshTokenExchange = function(settings, cb){
-  const body = {
-    grant_type: GRANT_TYPES.REFRESH_TOKEN,
-    redirect_uri: this.client.redirect_uri,
-    client_id: this.client.client_id,
-    refresh_token: settings.refresh_token
-  };
 
   [this.client.extras, settings.extras].forEach((v) => proccessExtras(body)(v));  
 
