@@ -90,7 +90,7 @@ Auth.prototype._loadASSettings = function(cb){
   request({ 
     url: this.as.discovery_url,
     method: 'GET',
-    headers: { 'content-type': 'application/json', },    
+    headers: { 'content-type': 'application/json' },    
   }, (err, response, body) => {
     if (err || response.statusCode !== 200){
       this.logger.error('there was an error loading authorization server data', err || { statusCode: response.statusCode, body: body });      
@@ -106,7 +106,7 @@ Auth.prototype._loadASSettings = function(cb){
       this.logger.debug('loading information from wellknown url', this.as);
     } catch(e){
       this.logger.error('there was an error loading authorization server data', e);      
-      return cb(e);
+      return cb(new Error('there was an error parsing the response'));
     }
 
     if (!this.as.authorization_endpoint) { return cb(new Error('authorization_endpoint cannot be null')); }

@@ -281,12 +281,293 @@ describe('auth', () => {
     })
   });
 
-  describe('authenticate', () => {
-
-  });
-
   describe('performRefreshTokenExchange', () => {
+    describe('when discovery url is set', () => { 
+      const discovery_url = 'http://as.com/.well-known/openid-configuration';
+      describe('when the AS is not configured', () => {
+        describe('when discovery endpoint has all the information', () => {
+          let err, res, requestStub;
+          before((done) => {
+            requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 200 }, JSON.stringify({ 
+              authorization_endpoint: 'http://as.com/authenticate',
+              token_endpoint: 'http://as.com/oauth/token',
+              userinfo_endpoint: 'http://as.com/userinfo',
+              revocation_endpoint: 'http://as.com/oauth/revoke'
+            })).onSecondCall().yields(null, { statusCode: 200 }, JSON.stringify({
+              access_token: '123'
+            }));
+            const Auth = $require('../src/auth', {
+              './server': function(){
+                return mockedServer
+              },
+              'request': requestStub
+            });
+            (new Auth())
+              .setDiscoveryUrl(discovery_url)
+              .setClient({
+                redirect_uri: 'http://localhost:8000',
+                client_id : '123'
+              })
+              .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+                err = e;
+                res = r;
+                done();
+              });
+          });
 
+          it('should call revoke endpoint', () => {
+            const discoveryRequest = requestStub.args[0];
+            assert.equal(discoveryRequest[0].url, discovery_url);
+            assert.equal(discoveryRequest[0].method, 'GET');
+            assert.deepEqual(discoveryRequest[0].headers, { 'content-type': 'application/json' });
+            const tokenRequest = requestStub.args[1];
+            assert.equal(tokenRequest[0].url, 'http://as.com/oauth/token');            
+            assert.equal(tokenRequest[0].method, 'POST');
+            assert.equal(tokenRequest[0].dataType, 'json');
+            assert.deepEqual(tokenRequest[0].headers, { 'content-type': 'application/x-www-form-urlencoded' });
+            const form = {
+              grant_type: 'refresh_token',
+              redirect_uri: 'http://localhost:8000',
+              client_id: '123',
+              refresh_token: 'rt'
+            }
+            assert.deepEqual(tokenRequest[0].form, form);
+          });
+
+          it('should return the success response', () => {
+            assert.equal(err, null);
+            const respones = {
+              access_token: '123'
+            };
+            assert.deepEqual(res, respones)
+          });
+        });
+        
+        describe('when discovery url does not have all the information', () => {
+          let err, res, requestStub;
+          before((done) => {
+            requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 200 }, JSON.stringify({ 
+              authorization_endpoint: 'http://as.com/authenticate'
+            }));
+
+            const Auth = $require('../src/auth', {
+              './server': function(){
+                return mockedServer
+              },
+              'request': requestStub
+            });
+            (new Auth())
+              .setDiscoveryUrl(discovery_url)
+              .setClient({
+                redirect_uri: 'http://localhost:8000',
+                client_id : '123'
+              })
+              .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+                err = e;
+                res = r;
+                done();
+              });
+          });
+
+          it('should return error', () => {
+            assert.equal(err.message, 'token_endpoint cannot be null');
+            assert.equal(res, undefined);
+          });
+        });
+        
+        describe('whem discovery url returns error', () => {
+          let err, res, requestStub;
+          before((done) => {
+            requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 400 });
+
+            const Auth = $require('../src/auth', {
+              './server': function(){
+                return mockedServer
+              },
+              'request': requestStub
+            });
+            (new Auth())
+              .setDiscoveryUrl(discovery_url)
+              .setClient({
+                redirect_uri: 'http://localhost:8000',
+                client_id : '123'
+              })
+              .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+                err = e;
+                res = r;
+                done();
+              });
+          });
+
+          it('should return error', () => {
+            assert.equal(err.message, 'Unable to load AS settings');
+            assert.equal(res, undefined);
+          });
+        });
+
+        describe('when discovery url does not return a json', () => {
+          let err, res, requestStub;
+          before((done) => {
+            requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 200 }, 'not-a-json');
+
+            const Auth = $require('../src/auth', {
+              './server': function(){
+                return mockedServer
+              },
+              'request': requestStub
+            });
+            (new Auth())
+              .setDiscoveryUrl(discovery_url)
+              .setClient({
+                redirect_uri: 'http://localhost:8000',
+                client_id : '123'
+              })
+              .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+                err = e;
+                res = r;
+                done();
+              });
+          });
+
+          it('should return error', () => {
+            assert.equal(err.message, 'there was an error parsing the response');
+            assert.equal(res, undefined);
+          });
+        });
+      });
+
+      describe('when the AS is configured', () => {
+        let err, res, requestStub;
+        before((done) => {
+          requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 200 }, JSON.stringify({
+            access_token: '123'
+          })).onSecondCall().throws();
+          const Auth = $require('../src/auth', {
+            './server': function(){
+              return mockedServer
+            },
+            'request': requestStub
+          });
+          (new Auth())
+            .setAuthorizationServer({
+              authorization_endpoint: 'http://as.com/authenticate',
+              token_endpoint: 'http://as.com/oauth/token'
+            })
+            .setClient({
+              redirect_uri: 'http://localhost:8000',
+              client_id : '123'
+            })
+            .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+              err = e;
+              res = r;
+              done();
+            });
+        });
+
+        it('should call revoke endpoint', () => {
+          const tokenRequest = requestStub.args[0];
+          assert.equal(tokenRequest[0].url, 'http://as.com/oauth/token');            
+          assert.equal(tokenRequest[0].method, 'POST');
+          assert.equal(tokenRequest[0].dataType, 'json');
+          assert.deepEqual(tokenRequest[0].headers, { 'content-type': 'application/x-www-form-urlencoded' });
+          const form = {
+            grant_type: 'refresh_token',
+            redirect_uri: 'http://localhost:8000',
+            client_id: '123',
+            refresh_token: 'rt'
+          }
+          assert.deepEqual(tokenRequest[0].form, form);
+        });
+
+        it('should return the success response', () => {
+          assert.equal(err, null);
+          const respones = {
+            access_token: '123'
+          };
+          assert.deepEqual(res, respones)
+        });
+      });
+    });
+
+    describe('when discovery url is not set', () => { 
+      describe('when the AS is not configured', () => {
+        let err, res;
+        before((done) => {
+          const Auth = $require('../src/auth', {
+            './server': function(){
+              return mockedServer
+            }
+          });
+          (new Auth())
+            .setClient({
+              redirect_uri: 'http://localhost:8000',
+              client_id : '123'
+            })
+            .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+              err = e;
+              res = r;
+              done();
+            });
+        });
+
+        it('it should return error', () => {
+          assert.equal(err.message, 'authorization_endpoint cannot be null');
+          assert.equal(res, undefined);
+        })
+      })
+
+      describe('when the AS is configured', () => {
+        let err, res, requestStub;
+        before((done) => {
+          requestStub = sinon.stub().onFirstCall().yields(null, { statusCode: 200 }, JSON.stringify({
+            access_token: '123'
+          })).onSecondCall().throws();
+          const Auth = $require('../src/auth', {
+            './server': function(){
+              return mockedServer
+            },
+            'request': requestStub
+          });
+          (new Auth())
+            .setAuthorizationServer({
+              authorization_endpoint: 'http://as.com/authenticate',
+              token_endpoint: 'http://as.com/oauth/token'
+            })
+            .setClient({
+              redirect_uri: 'http://localhost:8000',
+              client_id : '123'
+            })
+            .performRefreshTokenExchange({ refresh_token:  'rt'}, (e, r) => {
+              err = e;
+              res = r;
+              done();
+            });
+        });
+
+        it('should call revoke endpoint', () => {
+          const tokenRequest = requestStub.args[0];
+          assert.equal(tokenRequest[0].url, 'http://as.com/oauth/token');            
+          assert.equal(tokenRequest[0].method, 'POST');
+          assert.equal(tokenRequest[0].dataType, 'json');
+          assert.deepEqual(tokenRequest[0].headers, { 'content-type': 'application/x-www-form-urlencoded' });
+          const form = {
+            grant_type: 'refresh_token',
+            redirect_uri: 'http://localhost:8000',
+            client_id: '123',
+            refresh_token: 'rt'
+          }
+          assert.deepEqual(tokenRequest[0].form, form);
+        });
+
+        it('should return the success response', () => {
+          assert.equal(err, null);
+          const respones = {
+            access_token: '123'
+          };
+          assert.deepEqual(res, respones)
+        });
+      });
+    });
   });
 
   describe('revokeRefreshToken', () => {
