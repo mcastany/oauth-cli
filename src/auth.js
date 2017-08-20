@@ -188,7 +188,7 @@ Auth.prototype._performAuthenticateRequest = function(settings, cb){
       opener(url);
     })
     .on('response', (response) => {
-      server.destroy();    
+      server.destroy();
       cb(null, response);
     }).on('error', (err) => {
       server.destroy();
