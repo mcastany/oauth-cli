@@ -1,6 +1,6 @@
-const cliOAuth = require('../');
+const Auth = require('../');
 
- const server = (new cliOAuth())
+const server = (new Auth())
   .setInternalServer({ port: 8001 })
   .setDiscoveryUrl('https://github-mcastany.auth0.com/.well-known/openid-configuration')
   .setAuthorizationServer({
@@ -22,7 +22,7 @@ server.authenticate({ scope: 'openid offline_access' }, (err, res) =>{
     if (err) { return console.log(err); }
     console.log(`Successfully refreshed token. access_token: ${res.access_token}`);
     
-    return server.revokeRefreshToken({ refresh_token: rt }, (err, res) => {
+    return server.revokeRefreshToken({ refresh_token: rt, client_id: 'jDnERxH1euNJHp8iekBZSJwTvm9gUtiT' }, (err) => {
       if (err) { return console.log(err); }
       console.log('Successfully revoked');
     });

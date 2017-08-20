@@ -50,10 +50,11 @@ Auth.prototype.setDiscoveryUrl = function(url){
 }
 
 Auth.prototype.setAuthorizationServer = function(settings){
-  this.as.authorization_endpoint = settings.authorization_endpoint;
-  this.as.token_endpoint = settings.token_endpoint;
-  this.as.userinfo_endpoint = settings.userinfo_endpoint;
-  this.as.revocation_endpoint = settings.revocation_endpoint;
+  if (!settings) { return this; }
+  this.as.authorization_endpoint = settings.authorization_endpoint || this.as.authorization_endpoint;
+  this.as.token_endpoint = settings.token_endpoint || this.as.token_endpoint;
+  this.as.userinfo_endpoint = settings.userinfo_endpoint || this.as.userinfo_endpoint;
+  this.as.revocation_endpoint = settings.revocation_endpoint || this.as.revocation_endpoint;
   this.logger.debug('configured as settings', this.as);
   return this;
 }
@@ -92,7 +93,7 @@ Auth.prototype._loadASSettings = function(cb){
     headers: { 'content-type': 'application/json', },    
   }, (err, response, body) => {
     if (err || response.statusCode !== 200){
-      this.logger.error('there was an error loading authorization server data', err || { statusCode: resp.statusCode, body: body });      
+      this.logger.error('there was an error loading authorization server data', err || { statusCode: response.statusCode, body: body });      
       return cb(new Error('Unable to load AS settings'));
     }
 
@@ -117,12 +118,12 @@ Auth.prototype._loadASSettings = function(cb){
 
 Auth.prototype._generateRandomString = function(length){
   length = length || 12;
-  const state = randomstring.generate();
+  const state = randomstring.generate(length);
   this.logger.debug('generating random string for state', state);
   return state;
 }
 
-Auth.prototype._generateCodeChallenge = function(method, cb){
+Auth.prototype._generateCodeChallenge = function(method){
   const code_verifier = this._generateRandomString(64);
   this.client.code_verifier = code_verifier;
   
@@ -158,41 +159,41 @@ Auth.prototype._performAuthenticateRequest = function(settings, cb){
   server.createServer(settings.response_mode, (err) => {
     if(err) { return cb(err); }    
   })
-  .on('loaded', () => {
-    let qs = {
-      'redirect_uri': this.client.redirect_uri,
-      'client_id': this.client.client_id,
-      'response_type': this.client.response_type,
-      'state': settings.state || this._generateRandomString(),
-    };
+    .on('loaded', () => {
+      let qs = {
+        'redirect_uri': this.client.redirect_uri,
+        'client_id': this.client.client_id,
+        'response_type': this.client.response_type,
+        'state': settings.state || this._generateRandomString(),
+      };
 
-    if (settings.scope){
-      qs.scope = settings.scope;
-    }
+      if (settings.scope){
+        qs.scope = settings.scope;
+      }
 
-    if (settings.response_mode){
-      qs.response_mode = settings.response_mode;
-    }
+      if (settings.response_mode){
+        qs.response_mode = settings.response_mode;
+      }
 
-    if (this.client.code_challenge_method){
-      qs.code_challenge = this._generateCodeChallenge();
-      qs.code_challenge_method = this.client.code_challenge_method;
-    }
+      if (this.client.code_challenge_method){
+        qs.code_challenge = this._generateCodeChallenge();
+        qs.code_challenge_method = this.client.code_challenge_method;
+      }
 
-    [this.client.extras, settings.extras].forEach(proccessExtras(qs));
-    
-    let url = `${this.as.authorization_endpoint}?${Object.getOwnPropertyNames(qs).map((v) => { return `${v}=${qs[v]}` }).join('&')}`;
-    this.logger.info('starting oauth flow', url)
-    
-    opener(url);
-  })
-  .on('response', (response) => {
-    cb(null, response);
-    server.destroy();    
-  }).on('error', (err) => {
-    server.destroy();
-    cb(err);    
-  });      
+      [this.client.extras, settings.extras].forEach(proccessExtras(qs));
+      
+      let url = `${this.as.authorization_endpoint}?${Object.getOwnPropertyNames(qs).map((v) => { return `${v}=${encodeURIComponent(qs[v])}` }).join('&')}`;
+      this.logger.info('starting oauth flow', url)
+      
+      opener(url);
+    })
+    .on('response', (response) => {
+      cb(null, response);
+      server.destroy();    
+    }).on('error', (err) => {
+      server.destroy();
+      cb(err);    
+    });      
 }
 
 Auth.prototype._performCodeExchange = function(settings, cb){
@@ -207,7 +208,7 @@ Auth.prototype._performCodeExchange = function(settings, cb){
     body.code_verifier = this.client.code_verifier;
   }
 
-  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body));  
+  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body)(v));  
 
   this._performTokenRequest(body, cb);
 }
@@ -220,7 +221,7 @@ Auth.prototype._performRefreshTokenExchange = function(settings, cb){
     refresh_token: settings.refresh_token
   };
 
-  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body));  
+  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body)(v));  
 
   this._performTokenRequest(body, cb);
 }
@@ -273,7 +274,7 @@ Auth.prototype.performRefreshTokenExchange = function(settings, cb){
     refresh_token: settings.refresh_token
   };
 
-  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body));  
+  [this.client.extras, settings.extras].forEach((v) => proccessExtras(body)(v));  
 
   this._loadASSettings((err) => {
     if (err) { return cb(err); }
@@ -286,11 +287,14 @@ Auth.prototype.revokeRefreshToken = function(settings, cb){
   if(!this.as.revocation_endpoint) { return cb(new Error('revoke endpoint is not defined')); }
 
   const form = {
-    client_id: this.client.client_id,
     token: settings.refresh_token
   };
 
-  [this.client.extras, settings.extras].forEach((v) => proccessExtras(form));  
+  if (settings.client_id){
+    form.client_id = settings.client_id;    
+  }
+
+  [this.client.extras, settings.extras].forEach((v) => proccessExtras(form)(v));  
   
   request({
     url: this.as.revocation_endpoint,

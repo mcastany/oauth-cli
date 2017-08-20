@@ -13,6 +13,7 @@ const RESPONSE_MODES = {
 }
 
 function Server(settings){
+  settings =  settings || { port : 8000, logger: console };
   this.port = settings.port;
   this.eventEmitter = new EventEmitter();
 
@@ -26,12 +27,12 @@ Server.prototype.on = function(event_name, cb){
   return this;
 }
 
-Server.prototype.createServer = function(response_type, cb){
+Server.prototype.createServer = function(rm, cb){
   const self = this;
-  const response_mode = RESPONSE_MODES[response_type] || RESPONSE_MODES['query'];
+  const response_mode = RESPONSE_MODES[rm] || RESPONSE_MODES['query'];
   const app = express();
 
-  if(response_type === 'form_post'){
+  if(rm === 'form_post'){
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
   }
@@ -49,6 +50,7 @@ Server.prototype.createServer = function(response_type, cb){
   });
 
   this.server = app.listen(this.port, () => {
+    self.logger.info('server listening on port ' + this.port);
     self.eventEmitter.emit('loaded')
     cb();
   });
@@ -58,6 +60,7 @@ Server.prototype.createServer = function(response_type, cb){
 
 Server.prototype.destroy = function(){
   if (this.server && typeof this.server.close === 'function'){
+
     this.server.close();
     delete this.server;
   }

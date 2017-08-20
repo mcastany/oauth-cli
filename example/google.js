@@ -1,6 +1,6 @@
-const cliOAuth = require('../');
+const Auth = require('../');
 
-const server = (new cliOAuth())
+const server = (new Auth())
   .setDiscoveryUrl('https://accounts.google.com/.well-known/openid-configuration')
   .setClient({
     client_id: '421432764521-gmsvmjdu90bccnn6thf80g1ar4ig21gd.apps.googleusercontent.com',
@@ -17,7 +17,7 @@ server.authenticate({ scope: 'openid', extras: { access_type: 'offline' } }, (er
     if (err) { return console.log(err); }
     console.log(`Successfully refreshed token. access_token: ${res.access_token}`);
     
-    return server.revokeRefreshToken({ refresh_token: rt }, (err, res) => {
+    return server.revokeRefreshToken({ refresh_token: rt }, (err) => {
       if (err) { return console.log(err); }
       console.log('Successfully revoked');
     });
