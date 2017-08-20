@@ -1,5 +1,5 @@
 {
-  "name": "oauth-for-cli",
+  "name": "oauth-cli",
   "version": "1.0.0",
   "description": "Package to add OAuth to CLI programs",
   "main": "index.js",
